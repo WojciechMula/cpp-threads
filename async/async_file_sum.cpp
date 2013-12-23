@@ -14,8 +14,13 @@ int file_sum(const char* name) {
 	}
 
 	int sum = 0;
-	while (!feof(f)) {
-		sum += fgetc(f);
+	while (true) {
+		const int c = fgetc(f);
+
+		if (c == EOF)
+			break;
+
+		sum += c;
 	}
 
 	fclose(f);
@@ -44,21 +49,27 @@ int main(int argc, char* argv[]) {
 	while (any_waiting) {
 		any_waiting = false;
 		std::chrono::milliseconds tiny(5);
-		for (size_t i=0; i < jobs.size(); i++) {
-			if (jobs[i].wait_for(tiny) == std::future_status::ready)
-				std::cout << '.';
-			else {
-				std::cout << progress[ticks[i] % 4];
 
-				ticks[i] += 1;
-				any_waiting = true;
+		for (size_t i=0; i < jobs.size(); i++) {
+			switch (jobs[i].wait_for(tiny)) {
+				case std::future_status::ready:
+					std::cout << '.';
+					break;
+
+				case std::future_status::deferred:
+					break;
+
+				case std::future_status::timeout:
+					std::cout << progress[ticks[i] % 4];
+
+					ticks[i] += 1;
+					any_waiting = true;
+					break;
 			}
 		}
 
 		std::cout << '\r';
 		std::cout.flush();
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 
 	std::cout << "\n";
